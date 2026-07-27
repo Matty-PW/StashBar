@@ -10,12 +10,10 @@ import SwiftData
 
 @main
 struct StashBarApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
-        // creates the status bar icon and dropdown popover
-        MenuBarExtra("StashBar", systemImage: "tray.and.arrow.down.fill") {
-            ContentView()
-        }
-        // allows full swiftUI interactivity
-        .menuBarExtraStyle(.window)
+        // placeholder while AppDelegate own the actual UI
+        Settings { EmptyView() }
     }
 }

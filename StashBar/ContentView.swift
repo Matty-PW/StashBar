@@ -145,7 +145,9 @@ struct ContentView: View {
                             .cornerRadius(6)
                             .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
                             // Enables dragging the file OUT of StashBar
-                            .draggable(item.url)
+                            .overlay(
+                                FileDragSource(url: item.url, onDragCompleted: onDelete)
+                            )
                             .contextMenu {
                                 Button("Remove", role: .destructive, action: onDelete)
                                 Button("Show in Finder") {
