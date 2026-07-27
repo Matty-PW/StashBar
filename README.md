@@ -14,12 +14,12 @@ Moving a file from Finder into an email, or holding a snippet of text between tw
 
 - **Quick note** -  monospaced scratchpad in the menu bar popover
 - **File shelf** - drag files in from Finder to hold them temporarily, drag them back out into any app
+- **Export notes** as Markdown to a local folder (Obsidian-compatible)
+- **Global hotkey** to summon the popover from anywhere
 
 **Planned**
 
-- Export notes as Markdown to a local folder (Obsidian-compatible)
 - Send notes to Apple Notes and Notion
-- Global hotkey to summon the popover from anywhere
 - Auto-clear after 24 hours, or a searchable history
 
 ## Requirements
