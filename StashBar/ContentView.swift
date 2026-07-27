@@ -6,16 +6,16 @@
 //
 
 import SwiftUI
-import SwiftData
 import UniformTypeIdentifiers
 
 struct ContentView: View {
     // notepad state
-    @State private var scratchpadText: String = ""
+    @AppStorage("scratchpadText") private var scratchpadText: String = ""
     
     // file shelf state
     @State private var files: [FileItem] = []
     @State private var isTargeted = false
+    @StateObject private var exporter = ExportManager()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -33,10 +33,10 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 }
-                    
-                }
-                 
-                // text note section
+                
+            }
+            
+            // text note section
             VStack(alignment: .leading, spacing: 4) {
                 Text("QUICK NOTE")
                     .font(.caption2)
@@ -93,66 +93,88 @@ struct ContentView: View {
                 .dropDestination(for: URL.self) { droppedURLs, _ in
                     let newItems = droppedURLs.map { FileItem(url: $0)}
                     for newItem in newItems {
-                                            if !files.contains(where: { $0.url == newItem.url }) {
-                                                files.append(newItem)
-                                            }
-                                        }
-                                        return true
-                                    } isTargeted: { targeted in
-                                        isTargeted = targeted
-                                    }
-                                }
-                            }
-                            .padding()
-                            .frame(width: 320)
+                        if !files.contains(where: { $0.url == newItem.url }) {
+                            files.append(newItem)
                         }
                     }
+                    return true
+                } isTargeted: { targeted in
+                    isTargeted = targeted
+                }
+            }
+            
+            Divider()
+            
+            HStack {
+                Text(exporter.folderName.map { "→ \($0)" } ?? "No folder chosen")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                Button("Change...") { exporter.chooseFolder() }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                
+                Button("Save as Markdown") {
+                    if exporter.folderName == nil { exporter.chooseFolder() }
+                    exporter.exportMarkdown(scratchpadText)
+                }
+                .font(.caption)
+                .disabled(scratchpadText.isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 320)
+    }
+}
 
-                    // Model representing a stashed file
-                    struct FileItem: Identifiable, Hashable {
-                        let id = UUID()
-                        let url: URL
-                        
-                        var name: String {
-                            url.lastPathComponent
-                        }
-                        
-                        var icon: NSImage {
-                            NSWorkspace.shared.icon(forFile: url.path)
-                        }
-                    }
+// Model representing a stashed file
+struct FileItem: Identifiable, Hashable {
+    let id = UUID()
+    let url: URL
+    
+    var name: String {
+        url.lastPathComponent
+    }
+    
+    var icon: NSImage {
+        NSWorkspace.shared.icon(forFile: url.path)
+    }
+}
 
-                    // Individual tile view for a file
-                    struct FileTileView: View {
-                        let item: FileItem
-                        let onDelete: () -> Void
-
-                        var body: some View {
-                            VStack(spacing: 4) {
-                                Image(nsImage: item.icon)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 32, height: 32)
-
-                                Text(item.name)
-                                    .font(.caption2)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .frame(width: 60)
-                            }
-                            .padding(6)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(6)
-                            .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
-                            // Enables dragging the file OUT of StashBar
-                            .overlay(
-                                FileDragSource(url: item.url, onDragCompleted: onDelete)
-                            )
-                            .contextMenu {
-                                Button("Remove", role: .destructive, action: onDelete)
-                                Button("Show in Finder") {
-                                    NSWorkspace.shared.activateFileViewerSelecting([item.url])
-                                }
-                            }
-                        }
-                    }
+// Individual tile view for a file
+struct FileTileView: View {
+    let item: FileItem
+    let onDelete: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(nsImage: item.icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 32, height: 32)
+            
+            Text(item.name)
+                .font(.caption2)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 60)
+        }
+        .padding(6)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(6)
+        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+        // Enables dragging the file OUT of StashBar
+        .overlay(
+            FileDragSource(url: item.url, onDragCompleted: onDelete)
+        )
+        .contextMenu {
+            Button("Remove", role: .destructive, action: onDelete)
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.url])
+            }
+        }
+    }
+}
