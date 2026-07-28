@@ -75,7 +75,7 @@ final class ExportManager: ObservableObject {
         guard folder.startAccessingSecurityScopedResource() else { return false }
         defer { folder.stopAccessingSecurityScopedResource() }
         
-        let fileURL = uniqueURL(in: folder, basename: title(from: text))
+        let fileURL = uniqueURL(in: folder, basename: filename(from: title(from: text)))
         
         do {
             try text.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -85,6 +85,47 @@ final class ExportManager: ObservableObject {
             return false
         }
     }
+    
+    private func escapedForAppleScript(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+    
+    @discardableResult
+    func exportToAppleNotes(_ text: String) -> Bool {
+        print("exportToAppleNotes called")
+        let noteTitle = title(from: text)
+        
+        // notes stores bodies as html so escape markup and convert new lines
+        let htmlBody = text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\n", with: "<br>")
+        
+        let source = """
+        tell application "Notes"
+            make new note with properties {name:"\(escapedForAppleScript(noteTitle))", body:"\(escapedForAppleScript(htmlBody))"}
+        end tell
+        """
+        
+        guard let script = NSAppleScript(source: source) else {
+            print("could not compile applescript")
+            return false
+        }
+        print("running applescript:\n\(source)")
+        
+        var error: NSDictionary?
+        script.executeAndReturnError(&error)
+        
+        if let error {
+            print("AppleScript failed: \(error)")
+            return false
+        }
+        return true
+    }
+    
+    
     // derives a filename safe title from the first non empty line of space
     // made internal not private because notes and notion reuse it
     func title(from text: String) -> String {
@@ -99,23 +140,23 @@ final class ExportManager: ObservableObject {
         while title.hasPrefix("#") { title.removeFirst() }
         title = title.trimmingCharacters(in: .whitespaces)
         
-        //replace charaters that are illegal or awkward in filenames
-        let illegal = CharacterSet(charactersIn: "/\\:?%*\"<>")
-        title = title.components(separatedBy: illegal).joined(separator: "-")
-        
-        // colapse runs of whitespace into single hyphens
-        title = title.split(whereSeparator: { $0.isWhitespace }).joined(separator: "-")
-        
-        // keeps file names manageable
-        if title.count > 50 { title = String(title.prefix(50)) }
-        
         guard !title.isEmpty else {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-            return "StashBar-\(formatter.string(from: Date()))"
+            return "StashBar \(formatter.string(from: Date()))"
         }
         return title
     }
+    
+    // a filename safe version of a title
+    private func filename(from title: String) -> String {
+        let illegal = CharacterSet(charactersIn: "/\\:?%*\"<>")
+        var name = title.components(separatedBy: illegal).joined(separator: "-")
+        name = name.split(whereSeparator: { $0.isWhitespace }).joined(separator: "-")
+        if name.count > 50 { name = String(name.prefix(50)) }
+        return name.isEmpty ? "StashBar-note" : name
+    }
+    
     
     // returns a url that doesnt already exist by adding -2, -3 and so on if needed
     private func uniqueURL(in folder: URL, basename: String) -> URL {

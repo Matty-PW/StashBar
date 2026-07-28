@@ -123,6 +123,20 @@ struct ContentView: View {
                 }
                 .font(.caption)
                 .disabled(scratchpadText.isEmpty)
+                
+                Button("Send to Notes") {
+                    exporter.exportToAppleNotes(scratchpadText)
+                }
+                .font(.caption)
+                .disabled(scratchpadText.isEmpty)
+                
+                Button {
+                    NSApplication.shared.terminate(nil)
+                } label: {
+                    Image(systemName: "power")
+                }
+                .buttonStyle(.borderless)
+                .help("Quit StashBar")
             }
         }
         .padding()
