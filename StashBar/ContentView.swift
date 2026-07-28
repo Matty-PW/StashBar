@@ -105,30 +105,35 @@ struct ContentView: View {
             
             Divider()
             
-            HStack {
-                Text(exporter.folderName.map { "→ \($0)" } ?? "No folder chosen")
-                    .font(.caption2)
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                    .foregroundColor(.secondary)
+                Text(exporter.folderName ?? "No folder chosen")
                     .foregroundColor(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
                 
                 Spacer()
                 
                 Button("Change...") { exporter.chooseFolder() }
                     .buttonStyle(.borderless)
-                    .font(.caption)
-                
-                Button("Save as Markdown") {
+            }
+            .font(.caption2)
+            
+            // action row
+            HStack(spacing: 8) {
+                Button("Save Markdown") {
                     if exporter.folderName == nil { exporter.chooseFolder() }
                     exporter.exportMarkdown(scratchpadText)
                 }
-                .font(.caption)
                 .disabled(scratchpadText.isEmpty)
                 
                 Button("Send to Notes") {
                     exporter.exportToAppleNotes(scratchpadText)
                 }
-                .font(.caption)
                 .disabled(scratchpadText.isEmpty)
+                
+                Spacer()
                 
                 Button {
                     NSApplication.shared.terminate(nil)
@@ -138,6 +143,8 @@ struct ContentView: View {
                 .buttonStyle(.borderless)
                 .help("Quit StashBar")
             }
+            .font(.caption)
+            
         }
         .padding()
         .frame(width: 320)
