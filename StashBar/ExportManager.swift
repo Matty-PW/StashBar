@@ -75,9 +75,7 @@ final class ExportManager: ObservableObject {
         guard folder.startAccessingSecurityScopedResource() else { return false }
         defer { folder.stopAccessingSecurityScopedResource() }
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        let fileURL = folder.appendingPathComponent("StashBar-\(formatter.string(from: Date())).md")
+        let fileURL = uniqueURL(in: folder, basename: title(from: text))
         
         do {
             try text.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -87,4 +85,47 @@ final class ExportManager: ObservableObject {
             return false
         }
     }
+    // derives a filename safe title from the first non empty line of space
+    // made internal not private because notes and notion reuse it
+    func title(from text: String) -> String {
+        let firstLine = text
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .first
+            .map(String.init) ?? ""
+        
+        var title = firstLine.trimmingCharacters(in: .whitespaces)
+        
+        // strip markdown heading markers
+        while title.hasPrefix("#") { title.removeFirst() }
+        title = title.trimmingCharacters(in: .whitespaces)
+        
+        //replace charaters that are illegal or awkward in filenames
+        let illegal = CharacterSet(charactersIn: "/\\:?%*\"<>")
+        title = title.components(separatedBy: illegal).joined(separator: "-")
+        
+        // colapse runs of whitespace into single hyphens
+        title = title.split(whereSeparator: { $0.isWhitespace }).joined(separator: "-")
+        
+        // keeps file names manageable
+        if title.count > 50 { title = String(title.prefix(50)) }
+        
+        guard !title.isEmpty else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+            return "StashBar-\(formatter.string(from: Date()))"
+        }
+        return title
+    }
+    
+    // returns a url that doesnt already exist by adding -2, -3 and so on if needed
+    private func uniqueURL(in folder: URL, basename: String) -> URL {
+        var candidate = folder.appendingPathComponent("\(basename).md")
+        var counter = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = folder.appendingPathComponent("\(basename)-\(counter).md")
+            counter += 1
+        }
+        return candidate
+    }
+    
 }
