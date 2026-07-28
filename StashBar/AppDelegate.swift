@@ -13,6 +13,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: StashPanel!
     private var hotKeyManager: HotKeyManager?
+    private var settingsWindow: NSWindow?
+    
+    @objc func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 380, height: 140),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "StashBar Settings"
+            window.contentView = NSHostingView(rootView: SettingsView())
+            window.center()
+            window.isReleasedWhenClosed = false // reuse it on open
+            settingsWindow = window
+        }
+        
+        // agent apps arent active by default so window needs help to come forward
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -24,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = StashPanel()
         
         // NSHostingView puts swiftUI view inside the AppKit window
-        let hosting = NSHostingView(rootView: ContentView())
+        let hosting = NSHostingView(rootView: ContentView(onShowSettings: { [weak self] in self?.showSettings()}))
         panel.setContentSize(hosting.fittingSize) // sizes the panel to fit the swift ui content
         panel.contentView = hosting
         

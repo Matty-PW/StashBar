@@ -9,6 +9,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    var onShowSettings: () -> Void = {}
+    
     // notepad state
     @AppStorage("scratchpadText") private var scratchpadText: String = ""
     
@@ -115,7 +117,7 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                Button("Change...") { exporter.chooseFolder() }
+                Button("Change…") { exporter.chooseFolder() }
                     .buttonStyle(.borderless)
             }
             .font(.caption2)
@@ -142,6 +144,17 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Quit StashBar")
+                
+                
+                Button {
+                    onShowSettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.borderless)
+                .help("Settings")
+    
+                
             }
             .font(.caption)
             
