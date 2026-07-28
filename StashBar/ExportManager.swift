@@ -97,7 +97,7 @@ final class ExportManager: ObservableObject {
         let noteTitle = title(from: text)
         
         // notes stores bodies as html so escape markup and convert new lines
-        let htmlBody = text
+        let htmlBody = bodyWithoutTitle(text)
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
@@ -146,6 +146,17 @@ final class ExportManager: ObservableObject {
             return "StashBar \(formatter.string(from: Date()))"
         }
         return title
+    }
+    
+    // the note text without the title line so notes doesnt show it twice
+    private func bodyWithoutTitle(_ text: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard let titleIndex = lines.firstIndex(where: {
+            !$0.trimmingCharacters(in: .whitespaces).isEmpty
+        }) else {
+            return ""
+        }
+        return lines[(titleIndex + 1)...].joined(separator: "\n")
     }
     
     // a filename safe version of a title
