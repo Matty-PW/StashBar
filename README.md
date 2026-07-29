@@ -2,7 +2,7 @@
 
 A macOS menu bar utility for stashing things you may need soon, whether that be a small note or a file on its way from one app to another.
 
-> **Status:** early development. Core features are being built; not yet ready for use.
+> **Status:** early development.
 
 ## Why
 
