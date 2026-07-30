@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var files: [FileItem] = []
     @State private var isTargeted = false
     @StateObject private var exporter = ExportManager()
+    @State private var showingConfirmation = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -28,8 +29,7 @@ struct ContentView: View {
                 Spacer()
                 if !scratchpadText.isEmpty || !files.isEmpty {
                     Button("Clear All") {
-                        scratchpadText = ""
-                        files.removeAll()
+                        showingConfirmation = true
                     }
                     .buttonStyle(.borderless)
                     .font(.caption)
@@ -180,6 +180,13 @@ struct ContentView: View {
         }
         .padding()
         .frame(width: 320)
+        .confirmationDialog("Clear the notepad and file shelf?", isPresented: $showingConfirmation, titleVisibility: .visible) {
+            Button("Clear All", role: .destructive) {
+                scratchpadText = ""
+                files.removeAll()
+            }
+            Button("Cancel", role: .cancel) { }
+        }
     }
 }
 
