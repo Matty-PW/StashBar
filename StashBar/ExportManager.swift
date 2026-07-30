@@ -9,13 +9,43 @@ import Foundation
 import AppKit
 import Combine
 
+enum ExportStatus: Equatable {
+    case success(String)
+    case failure(String)
+    
+    var message: String {
+        switch self {
+        case .success(let m), .failure(let m): return m
+        }
+    }
+    
+    var isSuccess: Bool {
+        if case .success = self { return true }
+        return false
+    }
+}
+
+
 final class ExportManager: ObservableObject {
     private let bookmarkKey = "exportFolderBookmark"
     
     @Published private(set) var folderName: String?
+    @Published private(set) var status: ExportStatus?
     
     init() {
         folderName = resolveFolder()?.lastPathComponent
+    }
+    
+    // shows message, then clears after a few seconds
+    private func report(_ newStatus: ExportStatus) {
+        // notes export finishes on a background queue, so always hop to main
+        DispatchQueue.main.async {
+            self.status = newStatus
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                // only clear if nothing newer has replaced it
+                if self?.status == newStatus { self?.status = nil }
+            }
+        }
     }
     
     // asks the user to pick a folder then store a bookmark so we can reach it again later
@@ -69,19 +99,26 @@ final class ExportManager: ObservableObject {
     // write text to a timestamped .md file in the chosen folder
     @discardableResult
     func exportMarkdown(_ text: String) -> Bool {
-        guard let folder = resolveFolder() else { return false }
+        guard let folder = resolveFolder() else {
+            report(.failure("Choose a folder first"))
+            return false
+        }
         
         // sandbox access must be explicitly opened and closed around the write
-        guard folder.startAccessingSecurityScopedResource() else { return false }
+        guard folder.startAccessingSecurityScopedResource() else {
+            report(.failure("Couldn't access that folder"))
+            return false
+        }
         defer { folder.stopAccessingSecurityScopedResource() }
         
         let fileURL = uniqueURL(in: folder, basename: filename(from: title(from: text)))
         
         do {
             try text.write(to: fileURL, atomically: true, encoding: .utf8)
+            report(.success("Saved \(fileURL.lastPathComponent)"))
             return true
         } catch {
-            print("Write failed: \(error)")
+            report(.failure("Save failed: \(error.localizedDescription)"))
             return false
         }
     }
@@ -110,17 +147,18 @@ final class ExportManager: ObservableObject {
         """
         
         guard let script = NSAppleScript(source: source) else {
-            print("could not compile applescript")
+            report(.failure("Couldn't buld the notes request"))
             return false
         }
-        print("running applescript:\n\(source)")
         
         var error: NSDictionary?
         script.executeAndReturnError(&error)
         
         if let error {
-            print("AppleScript failed: \(error)")
-            return false
+            let brief = error[NSAppleScript.errorBriefMessage] as? String ?? "Unknown error"
+            report(.failure("Notes: \(brief)"))
+        } else {
+            report(.success("Sent to Apple Notes"))
         }
         return true
     }

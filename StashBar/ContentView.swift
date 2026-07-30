@@ -23,7 +23,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             // header
             HStack {
-                Label("StashBar", systemImage: "tray.and.arrow.down.fill")
+                Label("StashBar", systemImage: "tray.and.arrow.down")
                     .font(.headline)
                 Spacer()
                 if !scratchpadText.isEmpty || !files.isEmpty {
@@ -121,6 +121,25 @@ struct ContentView: View {
                     .buttonStyle(.borderless)
             }
             .font(.caption2)
+            
+            //
+            HStack(spacing: 4) {
+                if let status = exporter.status {
+                    Image(systemName: status.isSuccess
+                          ? "checkmark.circle.fill"
+                          : "exclamationmark.triangle.fill")
+                    Text(status.message)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer()
+                
+            }
+            .font(.caption2)
+            .foregroundColor(exporter.status?.isSuccess == false ? .red : . secondary)
+            .frame(height: 24)
+            .animation(.easeInOut(duration: 0.2), value: exporter.status)
+    
             
             // action row
             HStack(spacing: 8) {
