@@ -41,7 +41,7 @@ final class ExportManager: ObservableObject {
         // notes export finishes on a background queue, so always hop to main
         DispatchQueue.main.async {
             self.status = newStatus
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 // only clear if nothing newer has replaced it
                 if self?.status == newStatus { self?.status = nil }
             }
@@ -72,7 +72,7 @@ final class ExportManager: ObservableObject {
             UserDefaults.standard.set(bookmark, forKey: bookmarkKey)
             folderName = url.lastPathComponent
         } catch {
-            print("Failed to create bookmark: \(error)")
+            report(.failure("Couldn't save access to that folder"))
         }
     }
     
@@ -88,7 +88,14 @@ final class ExportManager: ObservableObject {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             )
-            if isStale { print("Bookmark stale - folder was moved or renamed") }
+            if isStale {
+                if url.startAccessingSecurityScopedResource() {
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    if let fresh = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+                        UserDefaults.standard.set(fresh, forKey: bookmarkKey)
+                    }
+                }
+            }
             return url
         } catch {
             print("Failed to resolve bookmark \(error)")
@@ -100,7 +107,10 @@ final class ExportManager: ObservableObject {
     @discardableResult
     func exportMarkdown(_ text: String) -> Bool {
         guard let folder = resolveFolder() else {
-            report(.failure("Choose a folder first"))
+            let hadFolder = UserDefaults.standard.data(forKey: bookmarkKey) != nil
+            report(.failure(hadFolder
+                ? "Can't reach that folder - choose it again"
+                : "Choose a folder first"))
             return false
         }
         
@@ -130,7 +140,6 @@ final class ExportManager: ObservableObject {
     
     @discardableResult
     func exportToAppleNotes(_ text: String) -> Bool {
-        print("exportToAppleNotes called")
         let noteTitle = title(from: text)
         
         // notes stores bodies as html so escape markup and convert new lines
