@@ -18,55 +18,45 @@ final class HotKeyManager {
         self.handler = handler
     }
     
-    func register(keyCode: UInt32 = UInt32(kVK_ANSI_S), modifiers: UInt32 = UInt32(cmdKey | shiftKey)) {
+    func register(keyCode: UInt32, modifiers: UInt32) {
+        installHandlerIfNeeded()
         
-        // a four charater code identifying this hotkey. any unique value works
+        // drop previous binding before claiming a new one
+        if let existing = hotKeyRef {
+            UnregisterEventHotKey(existing)
+            hotKeyRef = nil
+        }
+        
+        
         let hotKeyID = EventHotKeyID(signature: OSType(0x53545348), id: 1)
+        let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        
+        if status != noErr {
+            print("Failed to register hotkey: \(status)")
+        }
+    }
+    
+    private func installHandlerIfNeeded() {
+        guard eventHandler == nil else { return }
         
         var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
         )
         
-        // the callback must be a plain c function pointer so it cannot capture self
-        // instead we hand self across as a raw pointer and reconstitute it inside
-        let status = InstallEventHandler(
+        InstallEventHandler(
             GetApplicationEventTarget(),
             { _, _, userData -> OSStatus in
                 guard let userData else { return noErr }
-                let manager = Unmanaged<HotKeyManager>
-                    .fromOpaque(userData)
-                    .takeUnretainedValue()
+                let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
                 manager.handler()
                 return noErr
+                
             },
             1,
             &eventType,
             Unmanaged.passUnretained(self).toOpaque(),
             &eventHandler
         )
-        
-        guard status == noErr else {
-            print("Failed to install event handler \(status)")
-            return
-        }
-        
-        let registerStatus = RegisterEventHotKey(
-            keyCode,
-            modifiers,
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
-        
-        if registerStatus != noErr {
-            // usually means another app already own this combination
-            print("Failed to register hotkey: \(registerStatus)")
-        }
-    }
-    
-    deinit {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        if let eventHandler { RemoveEventHandler(eventHandler) }
     }
 }

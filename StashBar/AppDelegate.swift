@@ -28,6 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
             window.isReleasedWhenClosed = false // reuse it on open
             settingsWindow = window
+            
+            window.contentView = NSHostingView(rootView: SettingsView(
+                onHotKeyChanged: { [weak self] choice in
+                    self?.hotKeyManager?.register(keyCode: choice.keyCode, modifiers: choice.modifiers)
+                }
+            ))
         }
         
         // agent apps arent active by default so window needs help to come forward
@@ -44,14 +50,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         panel = StashPanel()
         
+        if let button = statusItem.button {
+            let dropView = StatusDropView(frame: button.bounds)
+            dropView.autoresizingMask = [.width, .height]
+            dropView.onDragEntered = { [weak self] in
+                guard let self, !self.panel.isVisible else { return }
+                self.positionPanel()
+                self.panel.orderFrontRegardless()
+            }
+            button.addSubview(dropView)
+        }
+        
         // NSHostingView puts swiftUI view inside the AppKit window
         let hosting = NSHostingView(rootView: ContentView(onShowSettings: { [weak self] in self?.showSettings()}))
         panel.setContentSize(hosting.fittingSize) // sizes the panel to fit the swift ui content
         panel.contentView = hosting
         
-        hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel()
-        }
-        hotKeyManager?.register()
+        let saved = UserDefaults.standard.string(forKey: "hotKeyChoice")
+        let choice = saved.flatMap(HotKeyChoice.init(rawValue:)) ?? .cmdShiftS
+        
+        hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel() }
+        hotKeyManager?.register(keyCode: choice.keyCode, modifiers: choice.modifiers)
     }
     
     @objc private func togglePanel() {
