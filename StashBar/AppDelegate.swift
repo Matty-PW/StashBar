@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: StashPanel!
     private var hotKeyManager: HotKeyManager?
     private var settingsWindow: NSWindow?
+    private var springCloseWork: DispatchWorkItem?
+    private var panelOpenedBySpring = false
     
     @objc func showSettings() {
         if settingsWindow == nil {
@@ -55,8 +57,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dropView.autoresizingMask = [.width, .height]
             dropView.onDragEntered = { [weak self] in
                 guard let self, !self.panel.isVisible else { return }
+                self.springCloseWork?.cancel()
+                guard !self.panel.isVisible else { return }
                 self.positionPanel()
                 self.panel.orderFrontRegardless()
+                self.panelOpenedBySpring = true
+                
+                dropView.onDragExited = { [weak self] in
+                    guard let self, self.panelOpenedBySpring else { return }
+                    
+                    let work = DispatchWorkItem { [weak self] in
+                        guard let self, self.panel.isVisible else { return }
+                        // domt close if the cursor has moved onto the panel to drop
+                        guard !self.panel.frame.contains(NSEvent.mouseLocation) else { return }
+                        self.panel.orderOut(nil)
+                        self.panelOpenedBySpring = false
+                    }
+                    self.springCloseWork?.cancel()
+                    self.springCloseWork = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+                }
             }
             button.addSubview(dropView)
         }
@@ -71,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel() }
         hotKeyManager?.register(keyCode: choice.keyCode, modifiers: choice.modifiers)
+        panelOpenedBySpring = false
     }
     
     @objc private func togglePanel() {

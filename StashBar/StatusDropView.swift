@@ -12,6 +12,7 @@ import AppKit
 // when a file drag hovers over the menu bar icon
 final class StatusDropView: NSView {
     var onDragEntered: (() -> Void)?
+    var onDragExited: (() -> Void)?
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -26,6 +27,10 @@ final class StatusDropView: NSView {
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         onDragEntered?()
         return.copy
+    }
+    
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        onDragExited?()
     }
     
     // let ordinary clicks reach the status item button underneath
