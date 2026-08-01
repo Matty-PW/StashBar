@@ -2,8 +2,6 @@
 
 A macOS menu bar utility for stashing things you may need soon, whether that be a small note or a file on its way from one app to another.
 
-> **Status:** early development.
-
 ## Why
 
 Moving a file from Finder into an email, or holding a snippet of text between two apps, usually means a detour through Desktop or a TextEdit window. StashBar keeps a notepad and a temporary file shelf one click away in the menu bar, so the detour disappears.
