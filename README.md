@@ -10,17 +10,14 @@ Moving a file from Finder into an email, or holding a snippet of text between tw
 
 ## Features
 
-**Working**
-
-- **Quick note** -  monospaced scratchpad in the menu bar popover
+- **Quick note** -  small notepad in the menu bar popover
 - **File shelf** - drag files in from Finder to hold them temporarily, drag them back out into any app
-- **Export notes** as Markdown to a local folder (Obsidian-compatible)
-- **Global hotkey** to summon the popover from anywhere
-
-**Planned**
-
-- Send notes to Apple Notes and Notion
-- Auto-clear after 24 hours, or a searchable history
+- **Export notes as .md** - export as Markdown to a local folder (Obsidian compatible)
+- **Export to Apple Notes** - export directly to Apple Notes
+- **Global customisable hotkey** - to summon the popover from anywhere
+- **Spring loaded opening** - opens automatically when holding a file over the icon
+- **Start on login** - option to start automatically when you login
+- **Settings Menu** - separate settings menu to choose preferences
 
 ## Requirements
 
