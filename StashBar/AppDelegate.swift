@@ -32,8 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow = window
             
             window.contentView = NSHostingView(rootView: SettingsView(
-                onHotKeyChanged: { [weak self] choice in
-                    self?.hotKeyManager?.register(keyCode: choice.keyCode, modifiers: choice.modifiers)
+                onShortcutChanged: { [weak self] shortcut in
+                    self?.hotKeyManager?.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) ?? false
                 }
             ))
         }
@@ -86,11 +86,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.setContentSize(hosting.fittingSize) // sizes the panel to fit the swift ui content
         panel.contentView = hosting
         
-        let saved = UserDefaults.standard.string(forKey: "hotKeyChoice")
-        let choice = saved.flatMap(HotKeyChoice.init(rawValue:)) ?? .cmdShiftS
+        let saved = (try? JSONDecoder().decode(
+            Shortcut.self,
+            from: UserDefaults.standard.data(forKey: "hotKeyShortcut") ?? Data()
+        )) ?? .cmdShiftS
         
         hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel() }
-        hotKeyManager?.register(keyCode: choice.keyCode, modifiers: choice.modifiers)
+        hotKeyManager?.register(keyCode: saved.keyCode, modifiers: saved.modifiers)
         panelOpenedBySpring = false
     }
     

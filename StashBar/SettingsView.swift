@@ -9,25 +9,63 @@ import Foundation
 import SwiftUI
 
 struct SettingsView: View {
-    var onHotKeyChanged: (HotKeyChoice) -> Void = { _ in }
+    var onShortcutChanged: (Shortcut) -> Bool = { _ in true }
     
     @StateObject private var launchAtLogin = LaunchAtLogin()
-    @AppStorage("hotKeyChoice") private var hotKeyChoice: HotKeyChoice = .cmdShiftS
+    @StateObject private var store = ShortcutStore()
+    @State private var isRecording = false
+    @State private var conflictMessage: String?
     
     var body: some View {
         Form {
             Toggle("Launch StashBar at login", isOn: $launchAtLogin.isEnabled)
             
-            Picker("Show StashBar", selection: $hotKeyChoice) {
-                ForEach(HotKeyChoice.allCases) { choice in
-                    Text(choice.label).tag(choice)
+            LabeledContent("Shortcut") {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Button(isRecording ? "Type a shortcut…" : store.shortcut.display) {
+                            isRecording = true
+                        }
+                        .frame(minWidth: 120)
+                        .overlay(
+                            ShortcutRecorder(
+                                isRecording: $isRecording,
+                                onRecord: {apply($0) },
+                                onInvalid: { conflictMessage = $0 }
+                            )
+                            .allowsHitTesting(false)
+                        )
+                        
+                        Menu("Presets") {
+                            ForEach(Shortcut.presets, id: \.display) { preset in Button(preset.display) {apply(preset) }
+                            }
+                        }
+                        .fixedSize()
+                    }
+                    
+                    Text(conflictMessage ?? "System shortcuts like ⌘Space can't be captured.")
+                        .font(.caption)
+                        .foregroundColor(conflictMessage == nil ? .secondary : .red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            .onChange(of: hotKeyChoice) { _, newValue in
-                onHotKeyChanged(newValue)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 140)
+        .frame(width: 420, height: 220)
+    }
+    
+    private func apply(_ newValue: Shortcut) {
+        conflictMessage = nil
+        let previous = store.shortcut
+        store.shortcut = newValue
+        
+        if onShortcutChanged(newValue) {
+            conflictMessage = nil
+        } else {
+            // something else owns that combination so put old one back
+            store.shortcut = previous
+            _ = onShortcutChanged(previous)
+            conflictMessage = "\(newValue.display) is already in use by another app"
+        }
     }
 }

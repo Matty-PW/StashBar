@@ -18,7 +18,8 @@ final class HotKeyManager {
         self.handler = handler
     }
     
-    func register(keyCode: UInt32, modifiers: UInt32) {
+    @discardableResult
+    func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
         installHandlerIfNeeded()
         
         // drop previous binding before claiming a new one
@@ -31,10 +32,9 @@ final class HotKeyManager {
         let hotKeyID = EventHotKeyID(signature: OSType(0x53545348), id: 1)
         let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
         
-        if status != noErr {
-            print("Failed to register hotkey: \(status)")
+        return status == noErr
         }
-    }
+    
     
     private func installHandlerIfNeeded() {
         guard eventHandler == nil else { return }
