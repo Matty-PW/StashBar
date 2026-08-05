@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
+            window.delegate = self
             window.title = "StashBar Settings"
             window.contentView = NSHostingView(rootView: SettingsView())
             window.center()
@@ -114,5 +115,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             y: buttonFrame.minY - size.height - 6
         ))
         
+    }
+}
+
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        settingsWindow = nil
     }
 }

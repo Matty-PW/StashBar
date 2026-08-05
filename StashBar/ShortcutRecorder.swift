@@ -22,6 +22,11 @@ final class ShortcutRecorderView: NSView {
         return true
     }
     
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { onEnd?() }
+    }
+    
     override func keyDown(with event: NSEvent) {
         // esc abandons recording without changing anything
         if Int(event.keyCode) == kVK_Escape {
