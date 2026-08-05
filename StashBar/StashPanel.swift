@@ -15,8 +15,6 @@ final class StashPanel: NSPanel {
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 380),
-            // no .titled: a titled window adds its own frame view, which nests a second
-            // set of corners inside the glass and shapes the shadow to the full rect
             styleMask: [.nonactivatingPanel],
             backing: .buffered,
             defer: false

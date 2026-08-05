@@ -48,7 +48,7 @@ struct ContentView: View {
                 TextEditor(text: $scratchpadText)
                     .font(.system(.body, design: .monospaced))
                     // the underlying NSTextView draws an opaque background that would
-                    // punch a solid rectangle through the glass
+                    // draw a solid rectangle through the glass
                     .scrollContentBackground(.hidden)
                     .padding(4)
                     .background(Color.primary.opacity(0.06))
@@ -125,7 +125,7 @@ struct ContentView: View {
             }
             .font(.caption2)
             
-            //
+            
             HStack(spacing: 4) {
                 if let status = exporter.status {
                     Image(systemName: status.isSuccess

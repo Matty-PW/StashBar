@@ -53,8 +53,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
        
         let size = hosting.fittingSize
 
-        // NSGlassEffectView owns its own shape, so no manual layer masking here.
-        // it also only guarantees placement for contentView, not for added subviews.
         let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: size))
         glass.style = .regular
         glass.cornerRadius = StashPanel.cornerRadius
@@ -63,10 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hosting.autoresizingMask = [.width, .height]
         glass.contentView = hosting
 
-        // the window shadow is derived from the alpha of the content view's bounds, which
-        // is square regardless of how the glass renders its own corners. without a
-        // genuinely transparent-cornered silhouette the shadow squares off the corners
-        // and reads as a hairline rectangle drawn outside the glass.
+        
         let container = NSView(frame: NSRect(origin: .zero, size: size))
         container.wantsLayer = true
         container.layer?.cornerRadius = StashPanel.cornerRadius
