@@ -47,8 +47,11 @@ struct ContentView: View {
                 
                 TextEditor(text: $scratchpadText)
                     .font(.system(.body, design: .monospaced))
+                    // the underlying NSTextView draws an opaque background that would
+                    // punch a solid rectangle through the glass
+                    .scrollContentBackground(.hidden)
                     .padding(4)
-                    .background(Color(NSColor.controlBackgroundColor))
+                    .background(Color.primary.opacity(0.06))
                     .cornerRadius(6)
                     .frame(height: 120)
             }
@@ -223,7 +226,7 @@ struct FileTileView: View {
                 .frame(width: 60)
         }
         .padding(6)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color.primary.opacity(0.06))
         .cornerRadius(6)
         .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
         // Enables dragging the file OUT of StashBar

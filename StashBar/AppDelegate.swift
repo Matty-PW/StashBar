@@ -45,13 +45,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        
+        panel = StashPanel()
+        
+        let hosting = NSHostingView(rootView: ContentView(onShowSettings: {[weak self] in self?.showSettings()
+        }))
+       
+        let size = hosting.fittingSize
+
+        // NSGlassEffectView owns its own shape, so no manual layer masking here.
+        // it also only guarantees placement for contentView, not for added subviews.
+        let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: size))
+        glass.style = .regular
+        glass.cornerRadius = StashPanel.cornerRadius
+
+        hosting.frame = glass.bounds
+        hosting.autoresizingMask = [.width, .height]
+        glass.contentView = hosting
+
+        // the window shadow is derived from the alpha of the content view's bounds, which
+        // is square regardless of how the glass renders its own corners. without a
+        // genuinely transparent-cornered silhouette the shadow squares off the corners
+        // and reads as a hairline rectangle drawn outside the glass.
+        let container = NSView(frame: NSRect(origin: .zero, size: size))
+        container.wantsLayer = true
+        container.layer?.cornerRadius = StashPanel.cornerRadius
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = true
+        glass.autoresizingMask = [.width, .height]
+        container.addSubview(glass)
+
+        panel.setContentSize(size)
+        panel.contentView = container
+        // shadow is cached, so it needs recomputing once the rounded content is in place
+        panel.invalidateShadow()
+
+        
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "tray.and.arrow.down", accessibilityDescription: "StashBar")
         
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePanel)
         
-        panel = StashPanel()
         
         if let button = statusItem.button {
             let dropView = StatusDropView(frame: button.bounds)
@@ -82,11 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.addSubview(dropView)
         }
         
-        // NSHostingView puts swiftUI view inside the AppKit window
-        let hosting = NSHostingView(rootView: ContentView(onShowSettings: { [weak self] in self?.showSettings()}))
-        panel.setContentSize(hosting.fittingSize) // sizes the panel to fit the swift ui content
-        panel.contentView = hosting
-        
         let saved = (try? JSONDecoder().decode(
             Shortcut.self,
             from: UserDefaults.standard.data(forKey: "hotKeyShortcut") ?? Data()
@@ -94,7 +124,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel() }
         hotKeyManager?.register(keyCode: saved.keyCode, modifiers: saved.modifiers)
-        panelOpenedBySpring = false
     }
     
     @objc private func togglePanel() {

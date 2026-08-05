@@ -9,10 +9,15 @@ import Foundation
 import AppKit
 
 final class StashPanel: NSPanel {
+    // matches the glass corner in AppDelegate so the window shadow follows the same shape
+    static let cornerRadius: CGFloat = 16
+
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 380),
-            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            // no .titled: a titled window adds its own frame view, which nests a second
+            // set of corners inside the glass and shapes the shadow to the full rect
+            styleMask: [.nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -20,11 +25,9 @@ final class StashPanel: NSPanel {
         level = .statusBar
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
-        standardWindowButton(.closeButton)?.isHidden = true
-        standardWindowButton(.miniaturizeButton)?.isHidden = true
-        standardWindowButton(.zoomButton)?.isHidden = true
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
     
