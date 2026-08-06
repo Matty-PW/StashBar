@@ -19,7 +19,7 @@ Moving a file from Finder into an email, or holding a snippet of text between tw
 
 ## Requirements
 
-- macOS 14 or later
+- macOS 26.0 or later
 - Xcode 15 or later to build
 
 ## Building
