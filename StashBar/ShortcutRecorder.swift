@@ -19,7 +19,7 @@ final class ShortcutRecorderView: NSView {
     
     override func resignFirstResponder() -> Bool {
         onEnd?()
-        return true
+        return super.resignFirstResponder()
     }
     
     override func viewDidMoveToWindow() {
@@ -36,18 +36,26 @@ final class ShortcutRecorderView: NSView {
         
         let carbon = Self.carbonModifiers(from: event.modifierFlags)
         
-        // reject are keys + shift only combos
+        // bare keys and shift only combos arent global shortcut material
         guard carbon != 0, carbon != UInt32(shiftKey) else {
             NSSound.beep()
             onInvalid?("Shortcuts need ⌘, ⌥ or ⌃")
             return
         }
-        
+
         let shortcut = Shortcut(
             keyCode: UInt32(event.keyCode),
             modifiers: carbon,
             display: Self.display(for: event)
         )
+
+        // stay in recording mode so the user can just try another combination
+        if let reason = shortcut.reservedReason {
+            NSSound.beep()
+            onInvalid?(reason)
+            return
+        }
+
         onRecord?(shortcut)
         window?.makeFirstResponder(nil)
     }

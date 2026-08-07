@@ -26,32 +26,61 @@ enum ExportStatus: Equatable {
 }
 
 
+// NSAppleScript isnt thread safe so scripts go through this actor rather than
+// running concurrently.
+// being an actor also keeps them off the main thread
+// which matters because launching notes can take seconds
+private actor AppleScriptRunner {
+    // nil means it worked. only strings cross the actor boundary so there is
+    // no question about what is safe to send
+    func run(_ source: String) -> String? {
+        guard let script = NSAppleScript(source: source) else {
+            return "Couldn't build the Notes request"
+        }
+
+        var error: NSDictionary?
+        script.executeAndReturnError(&error)
+
+        guard let error else { return nil }
+        return "Notes: " + (error[NSAppleScript.errorBriefMessage] as? String ?? "Unknown error")
+    }
+}
+
+
 final class ExportManager: ObservableObject {
     private let bookmarkKey = "exportFolderBookmark"
-    
+    private let scriptRunner = AppleScriptRunner()
+
     @Published private(set) var folderName: String?
     @Published private(set) var status: ExportStatus?
-    
+
+    // identifies the current message so its timer cant clear a newer one
+    private var statusToken = 0
+
     init() {
         folderName = resolveFolder()?.lastPathComponent
     }
-    
-    // shows message, then clears after a few seconds
+
+    // shows message then clears after a few seconds
     private func report(_ newStatus: ExportStatus) {
-        // notes export finishes on a background queue, so always hop to main
-        DispatchQueue.main.async {
-            self.status = newStatus
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                // only clear if nothing newer has replaced it
-                if self?.status == newStatus { self?.status = nil }
-            }
+        statusToken &+= 1
+        let token = statusToken
+        status = newStatus
+
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            // comparing tokens rather than values so reporting the same message
+            // twice in a row doesnt let the first timer clear the second
+            guard let self, self.statusToken == token else { return }
+            self.status = nil
         }
     }
-    
+
     // asks the user to pick a folder then store a bookmark so we can reach it again later
-    func chooseFolder() {
-        // panel is non activating, so the app may not be frontmost
-        // without this the open pane can appear behind other windows
+    @discardableResult
+    func chooseFolder() -> Bool {
+        // panel is non activating so the app may not be at the front
+        // without this the open dropdown can appear behind other windows
         NSApp.activate(ignoringOtherApps: true)
         
         let panel = NSOpenPanel()
@@ -61,8 +90,8 @@ final class ExportManager: ObservableObject {
         panel.prompt = "Choose"
         panel.message = "Choose a folder for StashBar to save notes into"
         
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+
         do {
             let bookmark = try url.bookmarkData(
                 options: .withSecurityScope,
@@ -71,12 +100,15 @@ final class ExportManager: ObservableObject {
             )
             UserDefaults.standard.set(bookmark, forKey: bookmarkKey)
             folderName = url.lastPathComponent
+            status = nil
+            return true
         } catch {
             report(.failure("Couldn't save access to that folder"))
+            return false
         }
     }
     
-    // turn the stored bookmark back into a usable url
+    // turns the stored bookmark back into a usable url
     private func resolveFolder() -> URL? {
         guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
         
@@ -103,11 +135,13 @@ final class ExportManager: ObservableObject {
         }
     }
     
-    // write text to a timestamped .md file in the chosen folder
+    // writes text to a timestamped .md file in the chosen folder
     @discardableResult
     func exportMarkdown(_ text: String) -> Bool {
         guard let folder = resolveFolder() else {
             let hadFolder = UserDefaults.standard.data(forKey: bookmarkKey) != nil
+            // the name shown in the ui is now a lie, so stop claiming it
+            folderName = nil
             report(.failure(hadFolder
                 ? "Can't reach that folder - choose it again"
                 : "Choose a folder first"))
@@ -136,45 +170,45 @@ final class ExportManager: ObservableObject {
     private func escapedForAppleScript(_ s: String) -> String {
         s.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r\n", with: "\\n")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\n")
     }
-    
-    @discardableResult
-    func exportToAppleNotes(_ text: String) -> Bool {
+
+    // reports through `status` rather than returning because launching notes can
+    // take seconds and that cant be allowed to block the main thread
+    func exportToAppleNotes(_ text: String) {
         let noteTitle = title(from: text)
-        
-        // notes stores bodies as html so escape markup and convert new lines
+
+        // notes stores bodies as html so escape markup and convert new lines.
         let htmlBody = bodyWithoutTitle(text)
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\r\n", with: "<br>")
             .replacingOccurrences(of: "\n", with: "<br>")
-        
+            .replacingOccurrences(of: "\r", with: "<br>")
+
         let source = """
         tell application "Notes"
             make new note with properties {name:"\(escapedForAppleScript(noteTitle))", body:"\(escapedForAppleScript(htmlBody))"}
         end tell
         """
-        
-        guard let script = NSAppleScript(source: source) else {
-            report(.failure("Couldn't buld the notes request"))
-            return false
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            if let failure = await self.scriptRunner.run(source) {
+                self.report(.failure(failure))
+            } else {
+                self.report(.success("Sent to Apple Notes"))
+            }
         }
-        
-        var error: NSDictionary?
-        script.executeAndReturnError(&error)
-        
-        if let error {
-            let brief = error[NSAppleScript.errorBriefMessage] as? String ?? "Unknown error"
-            report(.failure("Notes: \(brief)"))
-        } else {
-            report(.success("Sent to Apple Notes"))
-        }
-        return true
     }
     
     
-    // derives a filename safe title from the first non empty line of space
-    // made internal not private because notes and notion reuse it
+    // derives a filename safe title from the first non empty line of text
+    // made internal not private because notes reuse it
     func title(from text: String) -> String {
         let firstLine = text
             .split(separator: "\n", omittingEmptySubsequences: true)

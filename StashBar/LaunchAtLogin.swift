@@ -28,7 +28,7 @@ final class LaunchAtLogin: ObservableObject {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            print("Lauch at login change failed: \(error)")
+            print("Launch at login change failed: \(error)")
         }
     }
 }

@@ -8,6 +8,9 @@
 	<true/>
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
+	<!-- automation.apple-events alone only drives the TCC prompt. the sandbox
+	     still blocks resolving the target process, which surfaces as
+	     -600 "Application isn't running", so Notes has to be named here too -->
 	<key>com.apple.security.temporary-exception.apple-events</key>
 	<string>com.apple.Notes</string>
 	<key>com.apple.security.files.bookmarks.app-scope</key>

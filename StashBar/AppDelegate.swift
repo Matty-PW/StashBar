@@ -19,26 +19,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func showSettings() {
         if settingsWindow == nil {
+            let hosting = NSHostingView(rootView: SettingsView(
+                onShortcutChanged: { [weak self] shortcut in
+                    self?.hotKeyManager?.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) ?? false
+                }
+            ))
+
+            // sized from the content rather than a hardcoded rect
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 380, height: 140),
+                contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
             )
             window.delegate = self
             window.title = "StashBar Settings"
-            window.contentView = NSHostingView(rootView: SettingsView())
+            window.contentView = hosting
+            // the window is rebuilt on each open so the shortcut recorder starts clean
+            // this only stops appkit freeing it before windowWillClose runs
+            window.isReleasedWhenClosed = false
             window.center()
-            window.isReleasedWhenClosed = false // reuse it on open
             settingsWindow = window
-            
-            window.contentView = NSHostingView(rootView: SettingsView(
-                onShortcutChanged: { [weak self] shortcut in
-                    self?.hotKeyManager?.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) ?? false
-                }
-            ))
         }
-        
+
         // agent apps arent active by default so window needs help to come forward
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
@@ -72,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         panel.setContentSize(size)
         panel.contentView = container
-        // shadow is cached, so it needs recomputing once the rounded content is in place
+        // shadow is cached so it needs recomputing once the rounded content is in place
         panel.invalidateShadow()
 
         
@@ -86,42 +89,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             let dropView = StatusDropView(frame: button.bounds)
             dropView.autoresizingMask = [.width, .height]
+
             dropView.onDragEntered = { [weak self] in
-                guard let self, !self.panel.isVisible else { return }
+                guard let self else { return }
                 self.springCloseWork?.cancel()
-                guard !self.panel.isVisible else { return }
+
+                // a panel that was already up wasnt opened by this drag so this
+                // drag doesnt get to close it either
+                guard !self.panel.isVisible else {
+                    self.panelOpenedBySpring = false
+                    return
+                }
+
                 self.positionPanel()
                 self.panel.orderFrontRegardless()
                 self.panelOpenedBySpring = true
-                
-                dropView.onDragExited = { [weak self] in
-                    guard let self, self.panelOpenedBySpring else { return }
-                    
-                    let work = DispatchWorkItem { [weak self] in
-                        guard let self, self.panel.isVisible else { return }
-                        // domt close if the cursor has moved onto the panel to drop
-                        guard !self.panel.frame.contains(NSEvent.mouseLocation) else { return }
-                        self.panel.orderOut(nil)
-                        self.panelOpenedBySpring = false
-                    }
-                    self.springCloseWork?.cancel()
-                    self.springCloseWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
-                }
             }
+
+            
+            dropView.onDragExited = { [weak self] in
+                guard let self, self.panelOpenedBySpring else { return }
+
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self, self.panel.isVisible else { return }
+                    // dont close if the cursor has moved onto the panel to drop
+                    guard !self.panel.frame.contains(NSEvent.mouseLocation) else { return }
+                    self.panel.orderOut(nil)
+                    self.panelOpenedBySpring = false
+                }
+                self.springCloseWork?.cancel()
+                self.springCloseWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+            }
+
             button.addSubview(dropView)
         }
-        
-        let saved = (try? JSONDecoder().decode(
-            Shortcut.self,
-            from: UserDefaults.standard.data(forKey: "hotKeyShortcut") ?? Data()
-        )) ?? .cmdShiftS
-        
+
+        let saved = ShortcutStore.load() ?? .cmdShiftS
+
         hotKeyManager = HotKeyManager { [weak self] in self?.togglePanel() }
-        hotKeyManager?.register(keyCode: saved.keyCode, modifiers: saved.modifiers)
+        // a shortcut that cant be claimed would otherwise just be silently dead
+        statusItem.button?.toolTip = hotKeyManager?.register(keyCode: saved.keyCode, modifiers: saved.modifiers) == true
+            ? "StashBar (\(saved.display))"
+            : "StashBar — \(saved.display) is unavailable, another app has it"
     }
-    
+
     @objc private func togglePanel() {
+        // opening or closing by hand takes the panel out of the springs hands
+        springCloseWork?.cancel()
+        panelOpenedBySpring = false
+
         if panel.isVisible {
             panel.orderOut(nil)
         } else {
@@ -130,15 +147,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.makeKey()              // accepts keyboard input for the text editor
         }
     }
-    
+
     private func positionPanel() {
-        guard let buttonFrame = statusItem.button?.window?.frame else { return }
+        guard let buttonWindow = statusItem.button?.window else { return }
+        let buttonFrame = buttonWindow.frame
         let size = panel.frame.size
-        panel.setFrameOrigin(NSPoint(
+
+        var origin = NSPoint(
             x: buttonFrame.midX - size.width / 2,
             y: buttonFrame.minY - size.height - 6
-        ))
-        
+        )
+
+        // a status item near the end of the menu bar would hang off the screen
+        if let visible = (buttonWindow.screen ?? NSScreen.main)?.visibleFrame {
+            let margin: CGFloat = 8
+            origin.x = min(max(origin.x, visible.minX + margin), visible.maxX - size.width - margin)
+            origin.y = max(origin.y, visible.minY + margin)
+        }
+
+        panel.setFrameOrigin(origin)
     }
 }
 

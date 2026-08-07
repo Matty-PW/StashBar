@@ -37,4 +37,8 @@ final class StatusDropView: NSView {
     override func mouseDown(with event: NSEvent) {
         superview?.mouseDown(with: event)
     }
+
+    override func rightMouseDown(with event: NSEvent) {
+        superview?.rightMouseDown(with: event)
+    }
 }

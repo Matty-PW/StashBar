@@ -47,8 +47,6 @@ struct ContentView: View {
                 
                 TextEditor(text: $scratchpadText)
                     .font(.system(.body, design: .monospaced))
-                    // the underlying NSTextView draws an opaque background that would
-                    // draw a solid rectangle through the glass
                     .scrollContentBackground(.hidden)
                     .padding(4)
                     .background(Color.primary.opacity(0.06))
@@ -147,7 +145,7 @@ struct ContentView: View {
             // action row
             HStack(spacing: 8) {
                 Button("Save Markdown") {
-                    if exporter.folderName == nil { exporter.chooseFolder() }
+                    if exporter.folderName == nil, !exporter.chooseFolder() { return }
                     exporter.exportMarkdown(scratchpadText)
                 }
                 .disabled(scratchpadText.isEmpty)
@@ -193,7 +191,7 @@ struct ContentView: View {
     }
 }
 
-// Model representing a stashed file
+// model representing a stashed file
 struct FileItem: Identifiable, Hashable {
     let id = UUID()
     let url: URL
@@ -207,7 +205,7 @@ struct FileItem: Identifiable, Hashable {
     }
 }
 
-// Individual tile view for a file
+// individual tile view for a file
 struct FileTileView: View {
     let item: FileItem
     let onDelete: () -> Void

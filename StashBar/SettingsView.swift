@@ -43,7 +43,7 @@ struct SettingsView: View {
                         .fixedSize()
                     }
                     
-                    Text(conflictMessage ?? "System shortcuts like ⌘Space can't be captured.")
+                    Text(conflictMessage ?? "Shortcuts need ⌘, ⌥ or ⌃. Some combinations are reserved by macOS.")
                         .font(.caption)
                         .foregroundColor(conflictMessage == nil ? .secondary : .red)
                         .fixedSize(horizontal: false, vertical: true)
@@ -55,17 +55,21 @@ struct SettingsView: View {
     }
     
     private func apply(_ newValue: Shortcut) {
+        if let reason = newValue.reservedReason {
+            conflictMessage = reason
+            return
+        }
+
         conflictMessage = nil
         let previous = store.shortcut
         store.shortcut = newValue
-        
-        if onShortcutChanged(newValue) {
-            conflictMessage = nil
-        } else {
-            // something else owns that combination so put old one back
+
+        guard onShortcutChanged(newValue) else {
+            // something else owns that combination so put the old one back
             store.shortcut = previous
             _ = onShortcutChanged(previous)
             conflictMessage = "\(newValue.display) is already in use by another app"
+            return
         }
     }
 }

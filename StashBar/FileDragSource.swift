@@ -13,7 +13,11 @@ import AppKit
 final class FileDragSourceView: NSView, NSDraggingSource {
     var url : URL?
     var onDragCompleted: (() -> Void)?
-    
+
+    // the panel is non activating so it often isnt the key window without this
+    // the first click is spent activating it and the drag needs a second press
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     // tells macos what kind of drag this is    .copy means source file is left alone
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         .copy
@@ -35,8 +39,6 @@ final class FileDragSourceView: NSView, NSDraggingSource {
     
     // called when the drag finishes wherever it lands
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        // NSDragOperation is an optionset. an empty set means nothing accept on the drop
-        // the user cancelled or let go over empty space. only remove on a real drop
         guard operation != [] else { return }
         onDragCompleted?()
     }
